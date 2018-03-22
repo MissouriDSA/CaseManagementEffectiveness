@@ -1,0 +1,32 @@
+Field,Description
+anchor_date,"Either the date of enrollment in 2016 (if ENROLLED_IN_PERIOD = 1), or the first date of service in 2016 (if ENROLLED_IN_PERIOD = 0)"
+MEDICAIDID,Encrypted Unique identifier for each Medicaid beneficiary
+FRANKLIN_COUNTY,Binary flag for whether the member lived in Franklin County at the anchor date
+ZIP,Zip Code of the member at the anchor date
+ENROLLMENT_DATE,Date of enrollment in 2016
+ENROLLED_IN_PERIOD,Binary flag for whether the member received the intervention
+MRN,"Encrypted Medical Record Number at Nationwide Children's, if available"
+NCH_Previous,Binary flag for whether the member was an NCH member at least 14 days prior to the anchor date
+age_at_anchor,Age at the anchor date
+ABD_FLAG,"Binary flag for whether the member was a part of the Aged, Blind and Disabled portion of the Medicaid population at the anchor date"
+CONT_ENROLLMENT_MONTHS,Number of continuous months of eligibility prior to the anchor date
+PayorID,"Internal ID for each payor (11 = Molina, 13 = Paramount, 14 = Buckeye) at anchor date"
+homehealth_flag,Binary flag for whether home health was utilized prior to the anchor date
+COUNTY,County at anchor date
+NCH_Inpatient,Binary flag for whether the member was inmember at Nationwide Children's Hospital in the 12 months prior to the anchor date
+PRIM_DX_HCUP_CHRONIC,Binary flag for whether the member had a primary chronic condition diagnosis in the 12 months prior to the anchor date
+PRIM_DX_BH,Binary flag for whether the member had a primary behavioral health diagnosis in the 12 months prior to the anchor date
+NCH_ATTRIBUTED_ASSIGNED,Binary flag for whether the member was either attributed or assigned to a Nationwide Children's provider at the anchor date
+ABUSE_NEGLECT,Binary flag for whether the member was diagnosed as having suspected or confirmed child abuse or neglect prior to the anchor date
+NOT_WITH_PARENTS,"Binary flag for whether the member had a diagnosis of not living at home prior to the anchor date (e.g. foster care, kinship care)"
+ZIP_PERCENT_URBAN,"Urbanicty of the zip code in the ZIP field, according to census data"
+ZIP_PERCENT_WHITE,"Percentage of white residents in the zip code in the zip field, according to census data"
+AVOIDABLE_ED_LAST_12_CNT,Number of avoidable ED Visits in the 12 months prior to the anchor date
+AVOIDABLE_ED_LAST_12_FLAG,Binary flag for whether the member had an avoidable ED visit in the 12 months prior to the anchor date
+PREV_AVOIDABLE_ED_VISIT,Binary flag for whether the member ever had an avoidable ED visit prior to the anchor date
+PREV_ASTHMA_ED,Binary flag for whether the member had an asthma ED visit
+PREV_DIABETES_ED,Binary flag for whether the member had a diabetes ED visit
+OVER_10K_PAID,"Binary flag for whether the member had more than $10,000 paid in the last 12 months prior to the anchor date"
+IP_LAST_12_FLAG,Binary flag for whether the member was inpatient in the previous 12 months prior to the anchor date
+ED_VISIT_FLAG_5,Binary flag for whether the member had 5 or more ED visits in the previous 12 months prior to the anchor date
+REFUSED_UTC_PREV_6_MOS,Binary flag for whether the patient had a previous case closed due to refusal or inability to contact in the previous 6 months prior to the anchor date
