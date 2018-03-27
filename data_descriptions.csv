@@ -29,4 +29,3 @@ PREV_DIABETES_ED,Binary flag for whether the member had a diabetes ED visit
 OVER_10K_PAID,"Binary flag for whether the member had more than $10,000 paid in the last 12 months prior to the anchor date"
 IP_LAST_12_FLAG,Binary flag for whether the member was inpatient in the previous 12 months prior to the anchor date
 ED_VISIT_FLAG_5,Binary flag for whether the member had 5 or more ED visits in the previous 12 months prior to the anchor date
-REFUSED_UTC_PREV_6_MOS,Binary flag for whether the patient had a previous case closed due to refusal or inability to contact in the previous 6 months prior to the anchor date
