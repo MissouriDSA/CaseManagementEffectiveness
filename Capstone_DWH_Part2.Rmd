@@ -1,0 +1,213 @@
+---
+output: 
+  html_document:
+    toc: false
+    css: styles.css
+
+
+
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Standardized Differences  
+<div class="fold s o">
+```{r, message=FALSE,warning=FALSE}
+#This section re-loads the data produced by the first markdown document, and re-loads the libraries.
+library(MatchIt)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(sqldf)
+library(tidyr)
+library(plotly)
+library(kableExtra)
+library(shiny)
+library(rateratio.test)
+library(stringr)
+library(stddiff)
+options(scipen = 999)
+match_compare <- read.csv("match_compare.csv")
+matched_data <- read.csv("matched_data.csv")
+matched_data <- matched_data[-c(1)]
+#now, we calculate the standardized differences.
+standardized_differences <- list(
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("FRANKLIN_COUNTY",colnames(matched_data)))[5],
+stddiff.numeric(data=matched_data,gcol=4,vcol=grep("PREVIOUS_ATTEMPTS",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("PREVIOUSLY_ENROLLED",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("NCH_Previous",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("ABD_FLAG",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("PREV_ASTHMA_ED",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("PREV_DIABETES_ED",colnames(matched_data)))[5],
+stddiff.numeric(data=matched_data,gcol=4,vcol=grep("abd_months",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("homehealth_flag",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("USES_PCP",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("OVER_10K_PAID",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("IP_LAST_12_FLAG",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("ED_VISIT_FLAG_5",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("NCH_Inpatient",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("NCH_ED",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("PRIM_DX_HCUP_CHRONIC",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("PRIM_DX_BH",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("NCH_ATTRIBUTED_ASSIGNED",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("ABUSE_NEGLECT",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("NOT_WITH_PARENTS",colnames(matched_data)))[5],
+stddiff.numeric(data=matched_data,gcol=4,vcol=grep("ZIP_PERCENT_URBAN",colnames(matched_data)))[5],
+stddiff.numeric(data=matched_data,gcol=4,vcol=grep("ZIP_PERCENT_WHITE",colnames(matched_data)))[5],
+stddiff.binary(data=matched_data,gcol=4,vcol=grep("AVOIDABLE_ED_LAST_12_FLAG",colnames(matched_data)))[5]
+)
+
+stddiff_names <- list ("FRANKLIN_COUNTY",
+                       "PREVIOUS_ATTEMPTS",
+                       "PREVIOUSLY_ENROLLED",
+                       "NCH_Previous",
+                       "ABD_FLAG",
+                       "PREV_ASTHMA_ED",
+                       "PREV_DIABETES_ED",
+                       "abd_months",
+                       "homehealth_flag",
+                       "USES_PCP",
+                       "OVER_10K_PAID",
+                       "IP_LAST_12_FLAG",
+                       "ED_VISIT_FLAG_5",
+                       "NCH_Inpatient",
+                       "NCH_ED",
+                       "PRIM_DX_HCUP_CHRONIC",
+                       "PRIM_DX_BH",
+                       "NCH_ATTRIBUTED_ASSIGNED",
+                       "ABUSE_NEGLECT",
+                       "NOT_WITH_PARENTS",
+                       "ZIP_PERCENT_URBAN",
+                       "ZIP_PERCENT_WHITE",
+                       "AVOIDABLE_ED_LAST_12_FLAG"
+)
+
+stddiff_df <- do.call(rbind, Map(data.frame,Covariate = stddiff_names,Standardized_Difference = standardized_differences))
+
+kable(stddiff_df, "html") %>%
+    kable_styling(bootstrap_options = c("striped","hover","condensed","responsive")) %>%
+    scroll_box(width="1100",height="500px")
+```  
+</div>
+
+## **Evaluation of Effectiveness**
+
+Now that the removal of the selection bias has been verified, it's possible to compare outcomes between the treated and non-treated populations. To do this, a separate data set is needed that contains the measurements of avoidable emergency visits after the anchor date.
+
+
+<div class="fold s o">
+```{r, message=FALSE,warning=FALSE}
+meas_data <-read.csv("ED_MEAS.csv",sep=",")
+meas_data[c("AVOIDABLE_ED_MEAS")][is.na(meas_data[c("AVOIDABLE_ED_MEAS")])] <- 0
+names(meas_data)
+
+```
+</div>
+
+
+There are three columns of interest in the measurement data:
+
+* **MEDICAIDID** - The unqiue identifier for each member.
+* **member_months_meas** - The number of eligible months for the member in the measurement period.
+* **AVOIDABLE_ED_MEAS** - The number of avoidable ED visits in the measurement period for the member.
+
+To normalize the results for the entire group, the measurements will be calcuated as a rate per 1,000 member months.
+
+<div class="fold s o">
+```{r}
+
+meas_data$AVOIDABLE_ED_MEAS = as.numeric(meas_data$AVOIDABLE_ED_MEAS)
+meas_data$member_months_meas = as.numeric(meas_data$member_months_meas)
+meas_summary <- sqldf(
+'
+select
+a.ENROLLED_IN_PERIOD,
+case when a.ENROLLED_IN_PERIOD = "1" THEN "Enrolled" ELSE "Not Enrolled" END AS ENROLLED_STATUS,
+sum(b.AVOIDABLE_ED_MEAS) as AVOIDABLE_ED_VISITS,
+sum(b.member_months_meas) as MEMBER_MONTHS,
+sum(b.AVOIDABLE_ED_MEAS)*1000/sum(b.member_months_meas) AS AVOIDABLE_ED_PER_1000
+
+from
+matched_data a
+
+left join
+meas_data b
+on a.MEDICAIDID = b.MEDICAIDID
+
+group by
+a.ENROLLED_IN_PERIOD
+'
+
+)
+
+meas_detail = sqldf(
+  
+'
+select
+a.MEDICAIDID,
+a.ENROLLED_IN_PERIOD,
+b.AVOIDABLE_ED_MEAS
+
+from
+matched_data a
+
+left join
+meas_data b
+on a.MEDICAIDID = b.MEDICAIDID
+
+'  
+  
+  
+)
+
+
+kable(meas_summary, "html") %>%
+    kable_styling(bootstrap_options = c("striped","hover","condensed","responsive")) %>%
+    scroll_box(width="1100",height="150px")
+
+```
+</div>
+
+#### **Results**
+<div class="fold s">
+```{r}
+
+ggplot(data = meas_summary, aes(x=ENROLLED_STATUS, AVOIDABLE_ED_PER_1000, fill = ENROLLED_STATUS,label = round(AVOIDABLE_ED_PER_1000,digits=1))) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  geom_text(nudge_y = 3) +
+  labs(x="", y="Avoidable ED Visits Per 1,000 Member Months", legend = "Enrolled Status") +
+  scale_fill_manual(values = c("Not Enrolled" = "#ff0000", "Enrolled" = "#00AC05"))
+
+meas_detail$AVOIDABLE_ED_MEAS <- as.numeric(meas_detail$AVOIDABLE_ED_MEAS)
+meas_detail$ENROLLED_IN_PERIOD <- as.numeric(meas_detail$ENROLLED_IN_PERIOD)
+meas_detail[c("AVOIDABLE_ED_MEAS")][is.na(meas_detail[c("AVOIDABLE_ED_MEAS")])] <- 0
+
+
+no_ed_visits <- c(meas_summary$AVOIDABLE_ED_VISITS)
+rate <- c(meas_summary$AVOIDABLE_ED_PER_1000)
+pt<-rateratio.test(no_ed_visits,rate)
+cat("Comparison p Value = ",pt$p.value)
+
+```
+</div>
+
+Based on the propensity match conducted in this analysis, it can be concluded that the Care Coordination program at Partners for Kids does not appear effective in reducing avoidable emergency utilization.
+
+##### **Action Steps for Consideration**
+
+* Enchance part of the care coordination intervention to specifically and more strongly address avoidable emergency utilization and appropriate use of a primary care physician. 
+
+* Incorporate avoidable emergency utilization as a part of the Partners For Kids physician incentive program, which pays bonuses to primarily non-Nationwide Children's community primary care providers for meeting certain utilization metrics. 
+
+#### **Potential Limitations**
+
+While the inclusion criteria for care coordination outreach were used as covariates in this analysis, they were set to meet a contractual obligation to increase enrollment in the program. Therefore, a wide net was intentionally cast across the delegated managed care population to ensure enrollment volumes could meet those obligations. Consequently, despite the accuracy of the propensity match, I may not have captured every possible covariate that affects enrollment and outcome.  I would expect this to be especially true in a health care claims dataset, where the amount of individual-level attributes is so large.
+
+
+
+

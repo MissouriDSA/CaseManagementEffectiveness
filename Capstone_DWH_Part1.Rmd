@@ -1,0 +1,339 @@
+---
+title: "Effectiveness of Care Coordination on Avoidable Emergency Utilization"
+author: "David Hedrick"
+date: "April 26, 2018"
+output: 
+  html_document:
+    toc: false
+    css: styles.css
+
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+[**Partners For Kids (PFK)**](http://partnersforkids.org) is a fully-capitated accountable care organization serving the 330,000 Medicaid Managed Care children in Central and Southeast Ohio (Figure 1 below), and is affiliated with Nationwide Children's Hospital (NCH) in Columbus, OH. Many accountable care organizations across the nation run on a shared savings model with Medicare, Medicaid or commercial insurers, where the organization splits savings below a specified financial target with the insurer. 
+
+However, PFK does not operate on this model. Instead, they are fully at-risk for every member's medical, dental, vision and pharmacy expenses. Moreover, while many accountable care organizations are part of a clinically-integrated network, PFK is not; meaning they are responsible for members' expenses at providers and institutions outside the Nationwide Children's health system, in addition to the expenses occurring at Nationwide Children's.
+
+**Figure 1: Partners for Kids covered counties**
+<center>
+![](images/PFK-Map.png)
+</center>
+## Why Care Coordination?
+
+Care Coordination is one of many mechanisms by which Partners For Kids manages the health of the pediatric Medicaid Managed Care Population. Generally speaking, healthier kids are less expensive kids, which results in a shared success for patients and insurers alike. By incorporating the largest pediatric provider in the PFK region, providers can also share in that success.
+
+Moreover, the Care Coordination service is required of all five Medicaid Managed Care Plans in Ohio. The five plans include **CareSource, Molina Healthcare, UnitedHealthcare Community Plan, Buckeye Community Health Plan (Centene), and Paramount Healthcare.** These plans can opt to fulfill this responsibility themselves, or **delegate** the responsibility to a third party entity like Partners for Kids. 
+
+**The delegation arrangement is a separate arrangement from the capitation (financial risk) arrangement.** A plan can be in a capitation arrangement with PFK, but choose not to be in a delegation arrangement with PFK for Care Coordination.
+
+Partners for Kids is financially at-risk for approximately 330,000 pediatric members in all five plans; however, they only have a delegation arrangement with four plans (every plan excluding CareSource). UnitedHealthcare did not begin their delegation arrangement with PFK until late 2017; therefore, this analysis will be limited to the three remaining plans **(Molina, Buckeye, and Paramount)**, which make up approximately 119,000 (36%) of the entire PFK population.
+
+## Who Does PFK Target for Care Coordination?
+
+PFK aims to target and manage members with:
+
+* High Cost
+* Frequent Inpatient Utilization
+* Frequent Emergency Department Utilization
+* Severe Chronic and Behavioral Health Conditions
+
+Children in custody of the state and those adopted out of state custody were carved-out (not included) of the managed care population until January 1, 2017, and remained on the traditional fee-for-service model (and therefore not covered by PFK) until that time. Since 2017 largely consists of the measurement period for this analysis, children in custody and adopted children are excluded from this analysis by default.
+
+## The Measurement: Avoidable Emergency Department Utilization
+
+The New York University Wagner School of Public Service has developed an [algorithm](https://wagner.nyu.edu/faculty/billings/nyued-background#) to classify emergency department utilization into several categories:
+
+* **Non-emergent** - The patient's initial complaint, presenting symptoms, vital signs, medical history, and age indicated that immediate medical care was not required within 12 hours;
+
+* **Emergent/Primary Care Treatable** - Based on information in the record, treatment was required within 12 hours, but care could have been provided effectively and safely in a primary care setting. The complaint did not require continuous observation, and no procedures were performed or resources used that are not available in a primary care setting (e.g., CAT scan or certain lab tests);
+
+* **Emergent - ED Care Needed** - Preventable/Avoidable - Emergency department care was required based on the complaint or procedures performed/resources used, but the emergent nature of the condition was potentially preventable/avoidable if timely and effective ambulatory care had been received during the episode of illness (e.g., the flare-ups of asthma, diabetes, congestive heart failure, etc.); and
+
+* **Emergent - ED Care Needed** - Not Preventable/Avoidable - Emergency department care was required and ambulatory care treatment could not have prevented the condition (e.g., trauma, appendicitis, myocardial infarction, etc.).
+
+For the purposes of this analysis, the categories listed in Figure 2 below will be used to measure the effectiveness of the Care Coordination program on Avoidable Emergency Utilization.
+
+**Figure 2: NYU Algorithm for Avoidable ED Visits**
+
+<center>
+![](images/NYU_ED_Diagram.png)
+</center>
+
+## The Problem: Selection Bias
+
+Since PFK is targeting the highest-risk members for inclusion in the Care Coordination program (including those with already-frequent emergency utilization), there is a selection bias between the enrolled (treated) and non-enrolled (not treated) populations.
+
+Therefore, comparing the unadjusted outcomes between those who received the Care Coordination intervention to those who did not receive the intervention is a virtually meaningless analysis.
+
+**Solution**: match enrolled members with similar non-enrolled members using logistic regression and compare outcomes of like members.
+
+
+
+## The Data  
+
+To begin, we'll load the dataset, which is a member-level detail of all qualifying members in 2016. Perhaps the most important field to understand is the **anchor_date**, since many of the other fields use it as a chronological frame of reference. All fields are described in detail below.
+
+<div class="fold s o">
+```{r, message=FALSE,warning=FALSE}
+library(MatchIt)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(sqldf)
+library(tidyr)
+library(plotly)
+library(kableExtra)
+library(shiny)
+library(rateratio.test)
+library(stringr)
+library(stddiff)
+path <- "data_20180302.csv"
+data <- read.csv(path, sep = ",")
+names(data)
+
+```
+</div>
+####What Do These Fields Mean?
+
+```{r, echo=FALSE}
+descriptions <- read.csv("data_descriptions.csv")
+kable(descriptions, "html") %>%
+    kable_styling(bootstrap_options = c("striped","hover","condensed","responsive")) %>%
+    scroll_box(width="1100",height="300px")
+```  
+
+
+#### **Data Carpentry**  
+Next, we'll do some data carpentry on these fields to make them usable in a logistic regression propensity match.
+
+<div class="fold s o">
+```{r}
+data$FRANKLIN_COUNTY <- as.factor(data$FRANKLIN_COUNTY)
+data$ENROLLED_IN_PERIOD <- as.factor(data$ENROLLED_IN_PERIOD)
+data$PREVIOUSLY_ENROLLED <- as.factor(data$PREVIOUSLY_ENROLLED)
+data$NCH_Previous <- as.factor(data$NCH_Previous)
+data$NCH_Inpatient <- as.factor(data$NCH_Inpatient)
+data$NCH_ED <- as.factor(data$NCH_ED)
+data$PRIM_DX_HCUP_CHRONIC <- as.factor(data$PRIM_DX_HCUP_CHRONIC)
+data$PRIM_DX_BH <- as.factor(data$PRIM_DX_BH)
+data$ABD_FLAG <- as.factor(data$ABD_FLAG)
+data$PREV_ASTHMA_ED <- as.factor(data$PREV_ASTHMA_ED)
+data$PREV_DIABETES_ED <- as.factor(data$PREV_DIABETES_ED)
+data$homehealth_flag <- as.factor(data$homehealth_flag)
+data$NCH_ATTRIBUTED_ASSIGNED <- as.factor(data$NCH_ATTRIBUTED_ASSIGNED)
+data$ABUSE_NEGLECT <- as.factor(data$ABUSE_NEGLECT)
+data$NOT_WITH_PARENTS <- as.factor(data$NOT_WITH_PARENTS)
+data$AVOIDABLE_ED_LAST_12_FLAG <- as.factor(data$AVOIDABLE_ED_LAST_12_FLAG)
+data$OVER_10K_PAID <- as.factor(data$OVER_10K_PAID)
+data$IP_LAST_12_FLAG <- as.factor(data$IP_LAST_12_FLAG)
+data$ED_VISIT_FLAG_5 <- as.factor(data$ED_VISIT_FLAG_5)
+data$USES_PCP<-as.factor(data$USES_PCP)
+
+data <- data %>%
+  na.omit()
+
+```
+</div>
+
+## Propensity Scores and Propensity Matching
+
+First, we'll calculate the propensity score to receive the Care Coordination intervention (the dependent variable) on the entire population. This data will be used later to evaluate the effectiveness of the match.
+
+<div class="fold s o">
+```{r}
+ps <- glm(ENROLLED_IN_PERIOD ~ FRANKLIN_COUNTY + PREVIOUS_ATTEMPTS
+          + PREVIOUSLY_ENROLLED + NCH_Previous + ABD_FLAG + PREV_ASTHMA_ED
+          + PREV_DIABETES_ED + abd_months + homehealth_flag + USES_PCP
+          + OVER_10K_PAID + IP_LAST_12_FLAG + ED_VISIT_FLAG_5
+          + NCH_Inpatient + NCH_ED + PRIM_DX_HCUP_CHRONIC
+          + PRIM_DX_BH + NCH_ATTRIBUTED_ASSIGNED + ABUSE_NEGLECT
+          + NOT_WITH_PARENTS + ZIP_PERCENT_URBAN + ZIP_PERCENT_WHITE
+          + AVOIDABLE_ED_LAST_12_FLAG, family = binomial(), data = data)
+
+
+ps_df <- data.frame(pr_score = predict(ps,type = "response"),
+                    ENROLLED_IN_PERIOD = ps$model$ENROLLED_IN_PERIOD, 
+                    MEDICAIDID = data$MEDICAIDID)
+
+options(scipen = 999)
+summary(ps)
+
+```
+</div>
+
+#### Match on Propensity Scores
+
+Next, we'll match enrolled members (ENROLLED_IN_PERIOD = 1) with non-enrolled members so that we can effectively compare the two groups. We'll use the nearest neighbor method of propensity matching, which finds a match for a treated member based on the non-treated member with the propensity score closest in value to them.
+
+[**More info on propensity matching**](https://umanitoba.ca/faculties/health_sciences/medicine/units/chs/departmental_units/mchp/protocol/media/propensity_score_matching.pdf) 
+
+<div class="fold s o">
+```{r}
+matched <- matchit(ENROLLED_IN_PERIOD ~ FRANKLIN_COUNTY + PREVIOUS_ATTEMPTS
+                   + PREVIOUSLY_ENROLLED + NCH_Previous + ABD_FLAG + PREV_ASTHMA_ED
+                   + PREV_DIABETES_ED + abd_months + homehealth_flag + USES_PCP
+                   + OVER_10K_PAID + IP_LAST_12_FLAG + ED_VISIT_FLAG_5
+                   + NCH_Inpatient + NCH_ED + PRIM_DX_HCUP_CHRONIC
+                   + PRIM_DX_BH + NCH_ATTRIBUTED_ASSIGNED + ABUSE_NEGLECT
+                   + NOT_WITH_PARENTS + ZIP_PERCENT_URBAN + ZIP_PERCENT_WHITE
+                   + AVOIDABLE_ED_LAST_12_FLAG, method = "nearest", data = data)
+matched_data <- match.data(matched)
+summary(matched)
+```
+</div>
+
+#### Plot Frequency of Matched Members by Propensity Score
+
+Since the number of members who received the intervention in 2016 is 1761, and given every member was able to be matched to a non-treated member, the number of members in the matched populations is exactly double 1761, or 3522. They've been plotted below using a frequency polygon to display the "closeness" of the match.
+
+<div class="fold s">
+```{r warning=FALSE, fig.width=12, align = "center"}
+
+setwd("plots")
+p <- ggplot(ps_df, aes(pr_score, colour = ENROLLED_IN_PERIOD)) +
+  geom_density(aes(fill=ENROLLED_IN_PERIOD,COLOUR = ENROLLED_IN_PERIOD), alpha = 0.3) + 
+  labs(x="Propensity to Enroll",y="Density") +
+  theme_bw() +
+  ggtitle("Treated vs Non-Treated Propensity Scores - Pre Match")
+
+
+
+p1 <- ggplot(matched_data, aes(distance, colour = ENROLLED_IN_PERIOD)) +
+  geom_density(aes(fill=ENROLLED_IN_PERIOD,COLOUR = ENROLLED_IN_PERIOD), alpha = 0.3) + 
+  labs(x="Propensity to Enroll",y="Density") +
+  theme_bw() +
+  ggtitle("Treated vs Non-Treated Propensity Scores - Post Match")
+
+
+p
+p1
+
+
+```
+</div>
+
+#### **Evaluation of Selection Bias Removal**
+
+To evaluate the selection bias removal, we'll compare the the values of the independent variables in the treated and non-treated populations before and after the propensity match. There will be a series of plots to visualize the removal, as well as standardized differences to determine if there is any statistical difference between the post-match treated and non-treated populations. Generally speaking, the green and red bars are quite unequal prior to the match, and it's desirable for the bars to become closer to equal after the propensity match, as well as the standardized differences to be less than 0.1.
+
+<div class="fold s o">
+```{r, message=FALSE,warning=FALSE}
+df1<-sqldf('
+           
+            select
+           ENROLLED_IN_PERIOD,
+           cast(sum(FRANKLIN_COUNTY) as float)/cast(count(FRANKLIN_COUNTY) as float) as P_FRANKLIN_COUNTY,
+           cast(sum(PREVIOUSLY_ENROLLED) as float)/cast(count(PREVIOUSLY_ENROLLED) as float) as P_PREVIOUSLY_ENROLLED,
+           cast(sum(PREVIOUS_ATTEMPTS)as float)*1000/cast(sum(CONT_ENROLLMENT_MONTHS) as float) AS PREV_ATTEMPTS_PER_1000,
+           cast(sum(NCH_Previous) as float)/cast(count(NCH_Previous) as float) as P_NCH_Previous,
+           cast(sum(ABD_FLAG) as float)/cast(count(ABD_FLAG) as float) as P_ABD_FLAG,
+           cast(sum(PREV_ASTHMA_ED) as float)/cast(count(PREV_ASTHMA_ED) as float) as P_PREV_ASTHMA_ED,
+           cast(sum(PREV_DIABETES_ED) as float)/cast(count(PREV_DIABETES_ED) as float) as P_PREV_DIABETES_ED,
+           cast(sum(abd_months) as float)*1000/cast(sum(CONT_ENROLLMENT_MONTHS) as float) AS ABD_MONTHS_PER_1000,
+           cast(sum(homehealth_flag) as float)/cast(count(homehealth_flag) as float) as P_homehealth_flag,
+           cast(sum(USES_PCP) as float)/cast(count(USES_PCP) as float) as P_USES_PCP,
+           cast(sum(OVER_10K_PAID) as float)/cast(count(OVER_10K_PAID) as float) as P_OVER_10K_PAID,
+           cast(sum(IP_LAST_12_FLAG) as float)/cast(count(IP_LAST_12_FLAG) as float) as P_IP_LAST_12_FLAG,
+           cast(sum(ED_VISIT_FLAG_5) as float)/cast(count(ED_VISIT_FLAG_5) as float) as P_ED_VISIT_FLAG_5,
+           cast(sum(NCH_Inpatient) as float)/cast(count(NCH_Inpatient) as float) as P_NCH_Inpatient,
+           cast(sum(NCH_ED) as float)/cast(count(NCH_ED) as float) as P_NCH_ED,
+           cast(sum(PRIM_DX_HCUP_CHRONIC) as float)/cast(count(PRIM_DX_HCUP_CHRONIC) as float) as P_PRIM_DX_HCUP_CHRONIC,
+           cast(sum(PRIM_DX_BH) as float)/cast(count(PRIM_DX_BH) as float) as P_PRIM_DX_BH,
+           cast(sum(NCH_ATTRIBUTED_ASSIGNED) as float)/cast(count(NCH_ATTRIBUTED_ASSIGNED) as float) as P_NCH_ATTRIBUTED_ASSIGNED,
+           cast(sum(ABUSE_NEGLECT) as float)/cast(count(ABUSE_NEGLECT) as float) as P_ABUSE_NEGLECT,
+           cast(sum(NOT_WITH_PARENTS) as float)/cast(count(NOT_WITH_PARENTS) as float) as P_NOT_WITH_PARENTS,
+           avg(ZIP_PERCENT_URBAN) as AVG_ZIP_PERCENT_URBAN,
+           avg(ZIP_PERCENT_WHITE) as AVG_ZIP_PERCENT_WHITE,
+           cast(sum(AVOIDABLE_ED_LAST_12_FLAG) as float)/cast(count(AVOIDABLE_ED_LAST_12_FLAG) as float) as P_AVOIDABLE_ED_LAST_12_FLAG
+           
+           
+           from 
+           data a
+           group by
+           a.ENROLLED_IN_PERIOD
+           
+           
+           
+           ')
+df3<-sqldf('
+           
+           select
+           ENROLLED_IN_PERIOD,
+           cast(sum(FRANKLIN_COUNTY) as float)/cast(count(FRANKLIN_COUNTY) as float) as P_FRANKLIN_COUNTY,
+           cast(sum(PREVIOUSLY_ENROLLED) as float)/cast(count(PREVIOUSLY_ENROLLED) as float) as P_PREVIOUSLY_ENROLLED,
+           cast(sum(PREVIOUS_ATTEMPTS)as float)*1000/cast(sum(CONT_ENROLLMENT_MONTHS) as float) AS PREV_ATTEMPTS_PER_1000,
+           cast(sum(NCH_Previous) as float)/cast(count(NCH_Previous) as float) as P_NCH_Previous,
+           cast(sum(ABD_FLAG) as float)/cast(count(ABD_FLAG) as float) as P_ABD_FLAG,
+           cast(sum(PREV_ASTHMA_ED) as float)/cast(count(PREV_ASTHMA_ED) as float) as P_PREV_ASTHMA_ED,
+           cast(sum(PREV_DIABETES_ED) as float)/cast(count(PREV_DIABETES_ED) as float) as P_PREV_DIABETES_ED,
+           cast(sum(abd_months) as float)*1000/cast(sum(CONT_ENROLLMENT_MONTHS) as float) AS ABD_MONTHS_PER_1000,
+           cast(sum(homehealth_flag) as float)/cast(count(homehealth_flag) as float) as P_homehealth_flag,
+           cast(sum(USES_PCP) as float)/cast(count(USES_PCP) as float) as P_USES_PCP,
+           cast(sum(OVER_10K_PAID) as float)/cast(count(OVER_10K_PAID) as float) as P_OVER_10K_PAID,
+           cast(sum(IP_LAST_12_FLAG) as float)/cast(count(IP_LAST_12_FLAG) as float) as P_IP_LAST_12_FLAG,
+           cast(sum(ED_VISIT_FLAG_5) as float)/cast(count(ED_VISIT_FLAG_5) as float) as P_ED_VISIT_FLAG_5,
+           cast(sum(NCH_Inpatient) as float)/cast(count(NCH_Inpatient) as float) as P_NCH_Inpatient,
+           cast(sum(NCH_ED) as float)/cast(count(NCH_ED) as float) as P_NCH_ED,
+           cast(sum(PRIM_DX_HCUP_CHRONIC) as float)/cast(count(PRIM_DX_HCUP_CHRONIC) as float) as P_PRIM_DX_HCUP_CHRONIC,
+           cast(sum(PRIM_DX_BH) as float)/cast(count(PRIM_DX_BH) as float) as P_PRIM_DX_BH,
+           cast(sum(NCH_ATTRIBUTED_ASSIGNED) as float)/cast(count(NCH_ATTRIBUTED_ASSIGNED) as float) as P_NCH_ATTRIBUTED_ASSIGNED,
+           cast(sum(ABUSE_NEGLECT) as float)/cast(count(ABUSE_NEGLECT) as float) as P_ABUSE_NEGLECT,
+           cast(sum(NOT_WITH_PARENTS) as float)/cast(count(NOT_WITH_PARENTS) as float) as P_NOT_WITH_PARENTS,
+           avg(ZIP_PERCENT_URBAN) as AVG_ZIP_PERCENT_URBAN,
+           avg(ZIP_PERCENT_WHITE) as AVG_ZIP_PERCENT_WHITE,
+           cast(sum(AVOIDABLE_ED_LAST_12_FLAG) as float)/cast(count(AVOIDABLE_ED_LAST_12_FLAG) as float) as P_AVOIDABLE_ED_LAST_12_FLAG
+           
+           
+           from 
+           matched_data a
+           group by
+           a.ENROLLED_IN_PERIOD
+           ')
+
+
+match_compare <- sqldf("select
+                       *,
+                       case when ENROLLED_IN_PERIOD = '1' THEN 'ENROLLED' ELSE 'NOT ENROLLED' END AS ENROLLED_STATUS,
+                       'Before Match' as Match_Status
+                       from
+                       df1
+                       
+                       union
+                       
+                       select
+                       *,
+                       case when ENROLLED_IN_PERIOD = '1' then 'ENROLLED' ELSE 'NOT ENROLLED' END AS ENROLLED_STATUS,
+                       'After Match' as Match_Status
+                       from
+                       df3")
+match_compare$ENROLLED_STATUS <-as.factor(match_compare$ENROLLED_STATUS)
+match_compare$Match_Status <- as.factor(match_compare$Match_Status)
+match_compare$Match_Status = factor(match_compare$Match_Status, levels = c("Before Match","After Match"))
+
+
+#To accomodate a javascript visualization directly beneath this code, 
+#I am writing two html files. To avoid differences between the two, I'm writing 
+#a few csv files to transfer the data to the second html file. 
+#match_compare1 prepares a csv to load to the shiny server that contains the values from the most recent run of data.
+match_compare1 <- as.data.frame(t(match_compare))
+library(data.table)
+setDT(match_compare1, keep.rownames = TRUE)
+names <- c("METRIC_LABEL","BEFORE_NOT_ENROLLED","AFTER_NOT_ENROLLED","AFTER_ENROLLED","BEFORE_ENROLLED")
+colnames(match_compare1) = names
+match_compare1 <- match_compare1[-c(1,25,26)]
+
+write.csv(match_compare1,file = "match_compare.csv")
+write.csv(matched_data,file = "matched_data.csv")
+
+```
+</div>
+
+
+
+
