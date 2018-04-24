@@ -34,7 +34,7 @@ mainPanel(
                         tags$script(src="hideOutput.js"),
 
                         # load your javascript code
-                        tags$script(src="my_script.js", width = "100px"),
+                        tags$script(src="my_script.js"),
                         textOutput("text")      
             
         
@@ -44,7 +44,7 @@ mainPanel(
     fluidRow(
         includeHTML("Capstone_DWH_Part2.html")),
     
-    width = 6
+    width = 12
     )
 
     )

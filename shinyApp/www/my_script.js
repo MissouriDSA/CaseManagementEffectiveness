@@ -45,7 +45,6 @@ var chart = bb.generate({
 
 
 
-document.getElementById("CombinationChart").style.width = "1000px";
 document.getElementById("CombinationChart").align = "center";
 
 chart.data.colors({

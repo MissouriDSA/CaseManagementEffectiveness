@@ -15,6 +15,12 @@
     color: #004c93;
 }
 
+.container-fluid {
+    max-width: 1200px;
+    margin: auto;
+    align-content: center;
+}
+
 pre.plot {
   background-color: white !important;
 }
@@ -22,8 +28,23 @@ pre.plot {
 body .main-container {
 max-width: 1200px;
 margin: auto;
+align-content: center;
 }
-.content {
-    max-width: 1200px;
-    margin: auto;
+
+#wrapper {
+
+margin: 0 auto;
+
 }
+
+#CombinationChart {
+ max-width: 1200px;
+ margin: auto;
+}
+
+
+.row {
+ max-width: 1200px;
+ margin: auto;
+}
+
